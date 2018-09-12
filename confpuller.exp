@@ -1,0 +1,124 @@
+#!/usr/bin/expect
+
+# ------ confpuller --------
+#
+# purpose: Pull config files from switches/routers/firewalls defined
+#
+# Program uses a file to extract type, hostname and passwords used to login
+#
+# devices.txt is the file containing the devices and info needed
+# Format consist of the following
+# <type> <hostname> <user> <password> <enablePassword>(if needed)
+#
+# type: fw=asa firewall  sw=switches and routers bnt=IBM 10G and 1G switch modules
+#
+# EXAMPLE FILE FORMAT:
+#   fw firewall01 admin adminpass enablepass
+#   sw switch01 admin adminpass
+#
+#
+# Version: 1.0
+# ---------------------------
+
+
+# --------- Variable Information ----------
+set timeout 1000
+set filesave [exec date +%m-%d-%Y]
+
+#---Pull Data from Config file (devices.txt)-----
+set f [open "devices.txt"]
+set deviceFile [split [read $f] "\n"]
+close $f
+
+
+#------------Main Program -----------------
+
+foreach device $deviceFile {
+        set devicewords [regexp -all -inline {\S+} $device]
+        set devicelist [subst $devicewords]
+        lassign $devicelist type router user pass enable
+
+        if {$type == "fw"} {
+                spawn ssh -l $user $router
+                expect {
+                        "(yes/no)" {
+                                send "yes\n"
+                                exp_continue
+                        }
+                        "password:" {
+                                send "$pass\n"
+                                expect "*>"
+                        }
+                }
+
+                send "en\n"
+                expect "Password:"
+                send "$enable\n"
+                log_file $router--$filesave.cfg
+                expect "*#"
+                send "term page 0\n"
+                expect "*#"
+                send "more system:running-config\n"
+                expect "*#"
+                send "\n"
+                expect "*#"
+                send "exit\n"
+                log_file
+        } elseif {$type == "sw"} {
+                spawn ssh -l $user $router
+                expect {
+                        "(yes/no)" {
+                                send "yes\n"
+                                exp_continue
+                        }
+                        "Password:" {
+                                send "$pass\n"
+                        }
+                }
+
+
+                log_file $router--$filesave.cfg
+                expect "*#"
+                send "term len 0\n"
+                expect "*#"
+                send "show running-config\n"
+                expect "$router#"
+                send "\n"
+                expect "*#"
+                send "exit\n"
+                log_file
+        } elseif {$type == "bnt"} {
+                spawn ssh -l $user $router
+                expect {
+                        "(yes/no)" {
+                                send "yes\n"
+                                exp_continue
+                        }
+                        "password:" {
+                                send "$pass\n"
+                        }
+                }
+                expect "(ibmnos-cli/iscli):"
+                send "iscli\n"
+                expect "*>"
+                send "en\n"
+                log_file $router--$filesave.cfg
+                expect "*#"
+                send "term 0\n"
+                expect "*#"
+                send "show running-config\n"
+                expect "*#"
+                send "\n"
+                expect "*#"
+                send "exit\n"
+                expect "(y/n) ?"
+                send "y\n"
+                send "\n"
+                log_file
+        } else {
+                puts "****WARNING UKNOWN TYPE USED ******"
+                break
+        }
+
+}
+
