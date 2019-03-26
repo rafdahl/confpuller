@@ -6,6 +6,10 @@ set user [lindex $argv 2];
 set pass [lindex $argv 3];
 set enable [lindex $argv 4];
 
+# --------- Variable Information ----------
+set timeout 1000
+set filesave [exec date +%m-%d-%Y]
+
 
 if {$type == "fw"} {
 		spawn ssh -l $user $router
