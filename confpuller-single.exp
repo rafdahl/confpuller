@@ -3,8 +3,6 @@
 set type [lindex $argv 0];
 set router [lindex $argv 1];
 set user [lindex $argv 2];
-set pass [lindex $argv 3];
-set enable [lindex $argv 4];
 
 # --------- Variable Information ----------
 set timeout 1000
@@ -12,55 +10,72 @@ set filesave [exec date +%m-%d-%Y]
 
 
 if {$type == "fw"} {
-		spawn ssh -l $user $router
-		expect {
-				"(yes/no)" {
-						send "yes\n"
-						exp_continue
-				}
-				"password:" {
-						send "$pass\n"
-						expect "*>"
-				}
+    send_user "password?\ "
+    stty -echo
+    expect_user -re "(.*)\n"
+    stty echo
+    set pass $expect_out(1,string)
+	send_user "\n"
+	send_user "enable password?\ "
+    stty -echo
+    expect_user -re "(.*)\n"
+    stty echo
+    set enable $expect_out(1,string)
+	spawn ssh -l $user $router
+	expect {
+		"(yes/no)" {
+			send "yes\n"
+			exp_continue
 		}
+		"(P|p)assword:" {
+			send "$pass\n"
+			expect "*>"
+		}
+	}
 
-		send "en\n"
-		expect "Password:"
-		send "$enable\n"
-		log_file $router--$filesave.cfg
-		expect "*#"
-		send "term page 0\n"
-		expect "*#"
-		send "more system:running-config\n"
-		expect "*#"
-		send "\n"
-		expect "*#"
-		send "exit\n"
-		log_file
+	send "en\n"
+	expect "Password:"
+	send "$enable\n"
+	log_file $router--$filesave.cfg
+	expect "*#"
+	send "term page 0\n"
+	expect "*#"
+	send "more system:running-config\n"
+	expect "*#"
+	send "\n"
+	expect "*#"
+	send "exit\n"
+	log_file
 } elseif {$type == "sw"} {
-		spawn ssh -l $user $router
-		expect {
-				"(yes/no)" {
-						send "yes\n"
-						exp_continue
-				}
-				"Password:" {
-						send "$pass\n"
-				}
+	send_user "password?\ "
+    stty -echo
+    expect_user -re "(.*)\n"
+    stty echo
+    set pass $expect_out(1,string)
+	spawn ssh -l $user $router
+	expect {
+		"(yes/no)" {
+			send "yes\n"
+			exp_continue
 		}
+		"(P|p)assword:" {
+			send "$pass\n"
+		}
+	}
 
 
-		log_file $router--$filesave.cfg
-		expect "*#"
-		send "term len 0\n"
-		expect "*#"
-		send "show running-config\n"
-		expect "$router#"
-		send "\n"
-		expect "*#"
-		send "exit\n"
-		log_file
+	log_file $router--$filesave.cfg
+	expect "*#"
+	send "term len 0\n"
+	expect "*#"
+	send "show running-config\n"
+	expect "$router#"
+	send "\n"
+	expect "*#"
+	send "exit\n"
+	log_file
 } else {
-		puts "****WARNING UKNOWN TYPE USED ******"
-		break
+	puts "****WARNING UKNOWN TYPE USED ******"
+	break
 }
+
